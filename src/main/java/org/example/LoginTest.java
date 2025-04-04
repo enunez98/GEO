@@ -95,6 +95,22 @@ public class LoginTest {
             Object resultado = js.executeScript(script);
             System.out.println(resultado);
 
+            // 🚨 Notificar por WhatsApp con CallMeBot
+            try {
+                String message = "✅ Marqué entrada correctamente con Selenium desde GitHub Actions 🕒";
+                String encodedMessage = java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8.toString());
+                String url = "https://api.callmebot.com/whatsapp.php?phone=56990703632&text=" + encodedMessage + "&apikey=7693859";
+
+                java.net.URL obj = new java.net.URL(url);
+                java.net.HttpURLConnection con = (java.net.HttpURLConnection) obj.openConnection();
+                con.setRequestMethod("GET");
+                int responseCode = con.getResponseCode();
+                System.out.println("📩 WhatsApp enviado. Código de respuesta: " + responseCode);
+            } catch (Exception e) {
+                System.out.println("❌ Error al enviar mensaje por WhatsApp:");
+                e.printStackTrace();
+            }
+
             Thread.sleep(15000);
 
         } catch (Exception e) {
