@@ -2,7 +2,7 @@ name: Run Entrada Job
 
 on:
   schedule:
-    - cron: '45 12 * * 1-5'  # 08:45 Chile
+    - cron: '*/5 * * * *'  # cada 5 minutos (solo para probar)
   workflow_dispatch:
 
 jobs:
