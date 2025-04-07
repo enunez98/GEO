@@ -47,7 +47,7 @@ public class LoginTest {
             loginButton.click();
 
             wait.until(ExpectedConditions.urlContains("clients.geovictoria.com"));
-            Thread.sleep(20000); // esperar a que cargue dashboard
+            Thread.sleep(20000); // Esperar carga total
 
             JavascriptExecutor js = (JavascriptExecutor) driver;
 
@@ -87,16 +87,16 @@ public class LoginTest {
                 if (botonEntrada) {
                     botonEntrada.scrollIntoView({behavior: 'smooth', block: 'center'});
                     setTimeout(() => botonEntrada.click(), 100);
-                    return '✅ Botón "Marcar Entrada" clickeado.';
+                    return '✅ Botón "Marcar Entrada" clickeado correctamente.';
                 } else {
-                    return '❌ No se encontró "Marcar Entrada". Botones disponibles: ' + nombres.join(', ');
+                    return '❌ Botón "Marcar Entrada" no encontrado. 🔍 Botones encontrados: [' + nombres.join(', ') + ']';
                 }
             """;
 
             Object resultado = js.executeScript(script);
             System.out.println(resultado);
 
-            // 🚨 WhatsApp Notification
+            // 🔔 Notificación por WhatsApp con CallMeBot
             try {
                 String message = resultado.toString();
                 String encoded = java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8);
