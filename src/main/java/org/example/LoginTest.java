@@ -28,9 +28,7 @@ public class LoginTest {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--headless=new"); // ✅ Ejecutar sin entorno gráfico
+        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=new");
 
         WebDriver driver = new ChromeDriver(options);
 
@@ -40,7 +38,6 @@ public class LoginTest {
             driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
 
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-
             WebElement usernameField = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[1]/input")));
             WebElement passwordField = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[2]/input[1]")));
             WebElement loginButton = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[3]/button")));
@@ -50,8 +47,7 @@ public class LoginTest {
             loginButton.click();
 
             wait.until(ExpectedConditions.urlContains("clients.geovictoria.com"));
-
-            Thread.sleep(20000); // Esperar a que cargue completamente el dashboard
+            Thread.sleep(20000); // esperar a que cargue dashboard
 
             JavascriptExecutor js = (JavascriptExecutor) driver;
 
@@ -78,41 +74,44 @@ public class LoginTest {
 
             String script = """
                 const widget = document.querySelector('web-punch-widget');
-                if (!widget || !widget.shadowRoot) return '❌ <web-punch-widget> no encontrado';
+                if (!widget || !widget.shadowRoot) return '❌ No widget';
 
-                const botonEntrada = Array.from(widget.shadowRoot.querySelectorAll('button'))
-                    .find(btn => btn.innerText.trim() === 'Marcar Entrada');
+                const content = widget.shadowRoot.querySelector('web-punch-content');
+                if (!content || !content.shadowRoot) return '❌ No content';
+
+                const botones = Array.from(content.shadowRoot.querySelectorAll('.btn-text'));
+                const nombres = botones.map(b => b.innerText.trim());
+
+                const botonEntrada = botones.find(b => b.innerText.trim() === 'Marcar Entrada');
 
                 if (botonEntrada) {
                     botonEntrada.scrollIntoView({behavior: 'smooth', block: 'center'});
                     setTimeout(() => botonEntrada.click(), 100);
-                    return '✅ Botón "Marcar Entrada" clickeado correctamente.';
+                    return '✅ Botón "Marcar Entrada" clickeado.';
                 } else {
-                    return '❌ Botón "Marcar Entrada" no encontrado dentro del shadowRoot.';
+                    return '❌ No se encontró "Marcar Entrada". Botones disponibles: ' + nombres.join(', ');
                 }
             """;
 
             Object resultado = js.executeScript(script);
             System.out.println(resultado);
 
-            // 🚨 Notificar por WhatsApp con CallMeBot
+            // 🚨 WhatsApp Notification
             try {
-                String message = "✅ Marqué entrada correctamente con Selenium desde GitHub Actions 🕒";
-                String encodedMessage = java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8.toString());
-                String url = "https://api.callmebot.com/whatsapp.php?phone=56990703632&text=" + encodedMessage + "&apikey=7693859";
+                String message = resultado.toString();
+                String encoded = java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8);
+                String url = "https://api.callmebot.com/whatsapp.php?phone=56990703632&text=" + encoded + "&apikey=7693859";
 
                 java.net.URL obj = new java.net.URL(url);
                 java.net.HttpURLConnection con = (java.net.HttpURLConnection) obj.openConnection();
                 con.setRequestMethod("GET");
-                int responseCode = con.getResponseCode();
-                System.out.println("📩 WhatsApp enviado. Código de respuesta: " + responseCode);
+                System.out.println("📩 WhatsApp enviado. Código: " + con.getResponseCode());
             } catch (Exception e) {
-                System.out.println("❌ Error al enviar mensaje por WhatsApp:");
+                System.out.println("❌ Error al enviar WhatsApp:");
                 e.printStackTrace();
             }
 
             Thread.sleep(15000);
-
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
