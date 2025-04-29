@@ -1,8 +1,6 @@
 name: Run Entrada Job
 
 on:
-  schedule:
-    - cron: '30 12 * * 1-5'  # 8:30 AM Chile (UTC-4)
   workflow_dispatch:
 
 jobs:
