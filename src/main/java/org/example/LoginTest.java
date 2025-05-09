@@ -86,7 +86,7 @@ public class LoginTest {
 
                 if (botonEntrada) {
                     botonEntrada.scrollIntoView({behavior: 'smooth', block: 'center'});
-                    setTimeout(() => botonEntrada.click(), 100);
+                    botonEntrada.click();
                     return '✅ Botón "Marcar Entrada" clickeado correctamente.';
                 } else {
                     return '❌ Botón "Marcar Entrada" no encontrado. 🔍 Botones encontrados: [' + nombres.join(', ') + ']';
