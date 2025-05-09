@@ -73,27 +73,42 @@ public class LoginTest {
             }
 
             String script = """
-                const widget = document.querySelector('web-punch-widget');
-                if (!widget || !widget.shadowRoot) return '❌ No widget';
+                const callback = arguments[arguments.length - 1];
+                try {
+                    const widget = document.querySelector('web-punch-widget');
+                    if (!widget || !widget.shadowRoot) return callback('❌ No widget');
 
-                const content = widget.shadowRoot.querySelector('web-punch-content');
-                if (!content || !content.shadowRoot) return '❌ No content';
+                    const content = widget.shadowRoot.querySelector('web-punch-content');
+                    if (!content || !content.shadowRoot) return callback('❌ No content');
 
-                const botones = Array.from(content.shadowRoot.querySelectorAll('.btn-text'));
-                const nombres = botones.map(b => b.innerText.trim());
+                    const botones = Array.from(content.shadowRoot.querySelectorAll('.btn-text'));
+                    const nombresAntes = botones.map(b => b.innerText.trim());
+                    const botonEntrada = botones.find(b => b.innerText.trim() === 'Marcar Entrada');
 
-                const botonEntrada = botones.find(b => b.innerText.trim() === 'Marcar Entrada');
+                    if (!botonEntrada) {
+                        return callback('❌ Botón "Marcar Entrada" no encontrado. Botones visibles: [' + nombresAntes.join(', ') + ']');
+                    }
 
-                if (botonEntrada) {
                     botonEntrada.scrollIntoView({behavior: 'smooth', block: 'center'});
                     botonEntrada.click();
-                    return '✅ Botón "Marcar Entrada" clickeado correctamente.';
-                } else {
-                    return '❌ Botón "Marcar Entrada" no encontrado. 🔍 Botones encontrados: [' + nombres.join(', ') + ']';
+
+                    // Esperar para validar cambio a "Marcar Salida"
+                    setTimeout(() => {
+                        const nuevosBotones = Array.from(content.shadowRoot.querySelectorAll('.btn-text'));
+                        const nombresDespues = nuevosBotones.map(b => b.innerText.trim());
+
+                        if (!nombresDespues.includes('Marcar Entrada') && nombresDespues.includes('Marcar Salida')) {
+                            callback('✅ Marcar Entrada exitosa: botón cambió a "Marcar Salida".');
+                        } else {
+                            callback('⚠️ Click ejecutado, pero no se detectó cambio de estado. Botones ahora: [' + nombresDespues.join(', ') + ']');
+                        }
+                    }, 2000);
+                } catch (err) {
+                    callback('❌ Error ejecutando script: ' + err.message);
                 }
             """;
 
-            Object resultado = js.executeScript(script);
+            Object resultado = js.executeAsyncScript(script);
             System.out.println(resultado);
 
             // 🔔 Notificación por WhatsApp con CallMeBot
