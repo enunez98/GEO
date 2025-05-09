@@ -10,6 +10,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import io.github.bonigarcia.wdm.WebDriverManager;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.time.Duration;
 
@@ -27,7 +28,7 @@ public class LoginTest {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=new"); // ✅ GitHub Actions requiere headless
+        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=chrome");
 
         WebDriver driver = new ChromeDriver(options);
 
@@ -46,27 +47,51 @@ public class LoginTest {
             loginButton.click();
 
             wait.until(ExpectedConditions.urlContains("clients.geovictoria.com"));
-            Thread.sleep(20000); // esperar carga completa
+            Thread.sleep(20000); // Esperar carga total
 
             JavascriptExecutor js = (JavascriptExecutor) driver;
+
+            List<WebElement> iframes = driver.findElements(By.tagName("iframe"));
+            System.out.println("🔎 Iframes encontrados: " + iframes.size());
+
+            boolean switched = false;
+
+            for (WebElement iframe : iframes) {
+                driver.switchTo().frame(iframe);
+                Boolean widgetExiste = (Boolean) js.executeScript("return document.querySelector('web-punch-widget') !== null;");
+                if (widgetExiste) {
+                    System.out.println("✅ <web-punch-widget> encontrado dentro de un iframe.");
+                    switched = true;
+                    break;
+                }
+                driver.switchTo().defaultContent();
+            }
+
+            if (!switched) {
+                System.out.println("❌ No se encontró <web-punch-widget> en ningún iframe.");
+                return;
+            }
 
             // Paso 1: clic en botón "Más"
             String clickMasScript = """
                 const widget = document.querySelector('web-punch-widget');
-                if (!widget || !widget.shadowRoot) return '❌ No se encontró <web-punch-widget>';
-                const botonMas = widget.shadowRoot.querySelector('.btn-details');
+                if (!widget || !widget.shadowRoot) return '❌ No widget';
+                const botonMas = widget.shadowRoot.querySelector('.expand-collapse-toggle');
                 if (!botonMas) return '❌ Botón "Más" no encontrado';
                 botonMas.click();
                 return '✅ Botón "Más" clickeado';
             """;
-            Object resultadoMas = js.executeScript(clickMasScript);
-            System.out.println(resultadoMas);
+            Object resMas = js.executeScript(clickMasScript);
+            System.out.println(resMas);
 
-            // Paso 2: esperar modal y hacer clic en "Marcar Entrada"
+            // Volver al DOM raíz
+            driver.switchTo().defaultContent();
+
+            // Paso 2: esperar y hacer clic en "Marcar Entrada"
             String scriptModal = """
                 const callback = arguments[arguments.length - 1];
                 let intentos = 0;
-                const maxIntentos = 12;
+                const maxIntentos = 10;
 
                 const intervalo = setInterval(() => {
                     try {
@@ -76,10 +101,14 @@ public class LoginTest {
                         const modal = detalles.shadowRoot.querySelector('web-punch-modal');
                         if (!modal || !modal.shadowRoot) return;
 
-                        const botonEntrada = modal.shadowRoot.querySelector('.button-entry');
+                        const botonEntrada = Array.from(modal.shadowRoot.querySelectorAll('.button-entry')).find(b => {
+                            const texto = b.textContent.trim();
+                            return texto.includes("Marcar Entrada");
+                        });
+
                         if (!botonEntrada) {
                             clearInterval(intervalo);
-                            return callback('❌ Botón "Marcar Entrada" no encontrado en el modal');
+                            return callback('❌ Botón "Marcar Entrada" no encontrado en modal');
                         }
 
                         ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(evt => {
@@ -100,13 +129,13 @@ public class LoginTest {
                         clearInterval(intervalo);
                     } catch (err) {
                         clearInterval(intervalo);
-                        callback('❌ Error ejecutando JS: ' + err.message);
+                        callback('❌ Error en ejecución JS: ' + err.message);
                     }
 
                     intentos++;
                     if (intentos >= maxIntentos) {
                         clearInterval(intervalo);
-                        callback('❌ Timeout: modal no apareció a tiempo.');
+                        callback('❌ Timeout: modal no apareció luego de varios intentos.');
                     }
                 }, 1000);
             """;
@@ -114,7 +143,7 @@ public class LoginTest {
             Object resultado = js.executeAsyncScript(scriptModal);
             System.out.println(resultado);
 
-            // Enviar WhatsApp con resultado
+            // WhatsApp
             try {
                 String message = resultado.toString();
                 String encoded = java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8);
@@ -129,7 +158,7 @@ public class LoginTest {
                 e.printStackTrace();
             }
 
-            Thread.sleep(8000);
+            Thread.sleep(15000);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
