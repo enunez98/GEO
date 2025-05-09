@@ -28,7 +28,7 @@ public class LoginTest {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=chrome");
+        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=chrome"); // para Actions / Docker
 
         WebDriver driver = new ChromeDriver(options);
 
@@ -72,22 +72,33 @@ public class LoginTest {
                 return;
             }
 
-            // Paso 1: clic en botón "Más"
+            // Paso 1: clic realista en botón "Más"
             String clickMasScript = """
                 const widget = document.querySelector('web-punch-widget');
                 if (!widget || !widget.shadowRoot) return '❌ No widget';
+
                 const botonMas = widget.shadowRoot.querySelector('.expand-collapse-toggle');
                 if (!botonMas) return '❌ Botón "Más" no encontrado';
-                botonMas.click();
-                return '✅ Botón "Más" clickeado';
+
+                botonMas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                ['mouseover', 'mouseenter', 'mousemove', 'mousedown', 'mouseup', 'click'].forEach(evt => {
+                    const e = new MouseEvent(evt, { bubbles: true, cancelable: true, view: window });
+                    botonMas.dispatchEvent(e);
+                });
+
+                return '✅ Botón "Más" clickeado con eventos reales';
             """;
             Object resMas = js.executeScript(clickMasScript);
             System.out.println(resMas);
 
-            // 🔁 Salir del iframe
+            // Esperar que modal se despliegue
+            Thread.sleep(5000);
+
+            // Salir del iframe
             driver.switchTo().defaultContent();
 
-            // ⏱️ Aumentar tiempo para script asíncrono
+            // Ampliar tiempo para script asíncrono
             driver.manage().timeouts().setScriptTimeout(60, TimeUnit.SECONDS);
 
             // Paso 2: esperar modal y hacer clic en "Marcar Entrada"
@@ -146,7 +157,7 @@ public class LoginTest {
             Object resultado = js.executeAsyncScript(scriptModal);
             System.out.println(resultado);
 
-            // WhatsApp
+            // Notificación por WhatsApp
             try {
                 String message = resultado.toString();
                 String encoded = java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8);
