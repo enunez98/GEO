@@ -10,13 +10,16 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import io.github.bonigarcia.wdm.WebDriverManager;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.time.Duration;
 
 public class LoginTest {
     public static void main(String[] args) {
-
         String username = System.getenv("USERNAME");
         String password = System.getenv("PASSWORD");
 
@@ -25,42 +28,44 @@ public class LoginTest {
             return;
         }
 
+        // Configuración de ChromeDriver
         WebDriverManager.chromedriver().setup();
-
         ChromeOptions options = new ChromeOptions();
-       // options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=new");
-       options.addArguments("--no-sandbox", "--disable-dev-shm-usage");
-       // sin headless para ejecución local visible
-       
+        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=new");
+
         WebDriver driver = new ChromeDriver(options);
 
         try {
+            // 1. Iniciar sesión
             driver.get("https://clients.geovictoria.com/account/login");
             driver.manage().window().maximize();
             driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
 
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-            WebElement usernameField = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[1]/input")));
-            WebElement passwordField = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[2]/input[1]")));
-            WebElement loginButton = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[3]/button")));
+            WebElement usernameField = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[1]/input")));
+            WebElement passwordField = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[2]/input[1]")));
+            WebElement loginButton = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[3]/button")));
 
             usernameField.sendKeys(username);
             passwordField.sendKeys(password);
             loginButton.click();
 
+            // Esperar a redirección
             wait.until(ExpectedConditions.urlContains("clients.geovictoria.com"));
-            Thread.sleep(20000); // Esperar carga total
+            Thread.sleep(20000); // espera carga completa
 
+            // 2. Buscar iframe con el widget
             JavascriptExecutor js = (JavascriptExecutor) driver;
-
             List<WebElement> iframes = driver.findElements(By.tagName("iframe"));
             System.out.println("🔎 Iframes encontrados: " + iframes.size());
-
             boolean switched = false;
-
             for (WebElement iframe : iframes) {
                 driver.switchTo().frame(iframe);
-                Boolean widgetExiste = (Boolean) js.executeScript("return document.querySelector('web-punch-widget') !== null;");
+                Boolean widgetExiste = (Boolean) js.executeScript(
+                    "return document.querySelector('web-punch-widget') !== null;");
                 if (widgetExiste) {
                     System.out.println("✅ <web-punch-widget> encontrado dentro de un iframe.");
                     switched = true;
@@ -68,25 +73,35 @@ public class LoginTest {
                 }
                 driver.switchTo().defaultContent();
             }
-
             if (!switched) {
                 System.out.println("❌ No se encontró <web-punch-widget> en ningún iframe.");
                 return;
             }
 
-            // Paso 1: clic en botón "Más"
+            // Paso 1: clic en "Más" solo si está colapsado (">")
             String clickMasScript = """
                 const widget = document.querySelector('web-punch-widget');
                 if (!widget || !widget.shadowRoot) return '❌ No widget';
-                const botonMas = widget.shadowRoot.querySelector('.expand-collapse-toggle');
-                if (!botonMas) return '❌ Botón "Más" no encontrado';
-                botonMas.click();
-                return '✅ Botón "Más" clickeado';
+                const toggle = widget.shadowRoot.querySelector('.expand-collapse-toggle');
+                if (!toggle) return '❌ Toggle no encontrado';
+                const texto = toggle.textContent.trim();
+                if (texto === '>') {
+                  toggle.click();
+                  return '✅ Widget expandido (" > " → " < ")';
+                } else if (texto === '<') {
+                  return 'ℹ️ Ya estaba expandido ("<")';
+                } else {
+                  return '⚠️ Estado inesperado: ' + texto;
+                }
             """;
             Object resMas = js.executeScript(clickMasScript);
             System.out.println(resMas);
 
-            // Paso 2: esperar dinámicamente modal y hacer clic en "Marcar Entrada"
+            // Esperar a que aparezca el detalle del widget
+            wait.withTimeout(Duration.ofSeconds(5))
+                .until(d -> js.executeScript("return document.querySelector('web-punch-details') !== null;"));
+
+            // Paso 2: clic en "Marcar Entrada"
             String scriptModal = """
                 const callback = arguments[arguments.length - 1];
                 let intentos = 0;
@@ -138,18 +153,16 @@ public class LoginTest {
                     }
                 }, 1000);
             """;
-
             Object resultado = js.executeAsyncScript(scriptModal);
             System.out.println(resultado);
 
-            // Notificación por WhatsApp
+            // 3. Notificación por WhatsApp
             try {
                 String message = resultado.toString();
-                String encoded = java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8);
+                String encoded = URLEncoder.encode(message, StandardCharsets.UTF_8);
                 String url = "https://api.callmebot.com/whatsapp.php?phone=56990703632&text=" + encoded + "&apikey=1774229";
 
-                java.net.URL obj = new java.net.URL(url);
-                java.net.HttpURLConnection con = (java.net.HttpURLConnection) obj.openConnection();
+                HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
                 con.setRequestMethod("GET");
                 System.out.println("📩 WhatsApp enviado. Código: " + con.getResponseCode());
             } catch (Exception e) {
