@@ -28,7 +28,9 @@ public class LoginTest {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=new");
+        options.addArguments("--no-sandbox", "--disable-dev-shm-usage");
+        // OJO: sin headless para pruebas reales
+        // options.addArguments("--headless=new");
 
         WebDriver driver = new ChromeDriver(options);
 
@@ -93,23 +95,24 @@ public class LoginTest {
                     }
 
                     botonEntrada.scrollIntoView({behavior: 'smooth', block: 'center'});
-                    
-                    // Crear evento real
-                    const clickEvent = new MouseEvent('click', {
-                        bubbles: true,
-                        cancelable: true,
-                        view: window
+
+                    // Simular secuencia de eventos como humano
+                    ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(type => {
+                        const event = new MouseEvent(type, {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window
+                        });
+                        botonEntrada.dispatchEvent(event);
                     });
 
-                    botonEntrada.dispatchEvent(clickEvent);
-
-                    // Verificar cambio después de 2s
+                    // Esperar 2s para validar cambio de estado
                     setTimeout(() => {
                         const nuevos = Array.from(content.shadowRoot.querySelectorAll('.btn-entry')).map(b => {
                             const texto = b.querySelector('.btn-text');
                             return texto ? texto.innerText.trim() : '';
                         });
-                        
+
                         if (!nuevos.includes('Marcar Entrada') && nuevos.includes('Marcar Salida')) {
                             callback('✅ Entrada marcada correctamente (botón cambió a "Marcar Salida")');
                         } else {
