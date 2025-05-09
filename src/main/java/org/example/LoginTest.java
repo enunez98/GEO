@@ -72,65 +72,75 @@ public class LoginTest {
                 return;
             }
 
-            // Paso 1: hacer clic en botón "Más"
+            // Paso 1: clic en botón "Más"
             String clickMasScript = """
                 const widget = document.querySelector('web-punch-widget');
                 if (!widget || !widget.shadowRoot) return '❌ No widget';
-
                 const botonMas = widget.shadowRoot.querySelector('.expand-collapse-toggle');
                 if (!botonMas) return '❌ Botón "Más" no encontrado';
-
                 botonMas.click();
                 return '✅ Botón "Más" clickeado';
             """;
+            Object resMas = js.executeScript(clickMasScript);
+            System.out.println(resMas);
 
-            Object resultadoMas = js.executeScript(clickMasScript);
-            System.out.println(resultadoMas);
-            Thread.sleep(2000); // esperar que se abra el modal
-
-            // Paso 2: hacer clic en botón "Marcar Entrada" dentro del modal
+            // Paso 2: esperar dinámicamente modal y hacer clic en "Marcar Entrada"
             String scriptModal = """
                 const callback = arguments[arguments.length - 1];
-                try {
-                    const detalles = document.querySelector('web-punch-details');
-                    if (!detalles || !detalles.shadowRoot) return callback('❌ No web-punch-details');
+                let intentos = 0;
+                const maxIntentos = 10;
 
-                    const modal = detalles.shadowRoot.querySelector('web-punch-modal');
-                    if (!modal || !modal.shadowRoot) return callback('❌ No web-punch-modal');
+                const intervalo = setInterval(() => {
+                    try {
+                        const detalles = document.querySelector('web-punch-details');
+                        if (!detalles || !detalles.shadowRoot) return;
 
-                    const botonEntrada = Array.from(modal.shadowRoot.querySelectorAll('.button-entry')).find(b => {
-                        const texto = b.textContent.trim();
-                        return texto.includes("Marcar Entrada");
-                    });
+                        const modal = detalles.shadowRoot.querySelector('web-punch-modal');
+                        if (!modal || !modal.shadowRoot) return;
 
-                    if (!botonEntrada) {
-                        return callback('❌ Botón "Marcar Entrada" no encontrado en el modal');
+                        const botonEntrada = Array.from(modal.shadowRoot.querySelectorAll('.button-entry')).find(b => {
+                            const texto = b.textContent.trim();
+                            return texto.includes("Marcar Entrada");
+                        });
+
+                        if (!botonEntrada) {
+                            clearInterval(intervalo);
+                            return callback('❌ Botón "Marcar Entrada" no encontrado en modal');
+                        }
+
+                        ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(evt => {
+                            const e = new MouseEvent(evt, { bubbles: true, cancelable: true, view: window });
+                            botonEntrada.dispatchEvent(e);
+                        });
+
+                        setTimeout(() => {
+                            const botones = Array.from(modal.shadowRoot.querySelectorAll('.button'));
+                            const textos = botones.map(b => b.textContent.trim());
+                            if (textos.includes("Marcar Salida") && !textos.includes("Marcar Entrada")) {
+                                callback('✅ Entrada marcada correctamente (cambió a "Marcar Salida")');
+                            } else {
+                                callback('⚠️ Click ejecutado pero no hubo cambio. Botones ahora: [' + textos.join(', ') + ']');
+                            }
+                        }, 2000);
+
+                        clearInterval(intervalo);
+                    } catch (err) {
+                        clearInterval(intervalo);
+                        callback('❌ Error en ejecución JS: ' + err.message);
                     }
 
-                    // Disparar eventos como un humano
-                    ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(type => {
-                        const evt = new MouseEvent(type, { bubbles: true, cancelable: true, view: window });
-                        botonEntrada.dispatchEvent(evt);
-                    });
-
-                    setTimeout(() => {
-                        const botones = Array.from(modal.shadowRoot.querySelectorAll('.button'));
-                        const textos = botones.map(b => b.textContent.trim());
-                        if (textos.includes("Marcar Salida") && !textos.includes("Marcar Entrada")) {
-                            callback('✅ Entrada marcada correctamente (botón cambió a "Marcar Salida")');
-                        } else {
-                            callback('⚠️ Click ejecutado pero no hubo cambio. Botones ahora: [' + textos.join(', ') + ']');
-                        }
-                    }, 2000);
-                } catch (err) {
-                    callback('❌ Error en JS del modal: ' + err.message);
-                }
+                    intentos++;
+                    if (intentos >= maxIntentos) {
+                        clearInterval(intervalo);
+                        callback('❌ Timeout: modal no apareció luego de varios intentos.');
+                    }
+                }, 1000);
             """;
 
             Object resultado = js.executeAsyncScript(scriptModal);
             System.out.println(resultado);
 
-            // 🔔 Notificación por WhatsApp con CallMeBot
+            // Notificación por WhatsApp
             try {
                 String message = resultado.toString();
                 String encoded = java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8);
