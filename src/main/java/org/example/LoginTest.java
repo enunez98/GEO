@@ -28,9 +28,7 @@ public class LoginTest {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--no-sandbox", "--disable-dev-shm-usage");
-        // OJO: sin headless para pruebas reales
-        // options.addArguments("--headless=new");
+        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=new");
 
         WebDriver driver = new ChromeDriver(options);
 
@@ -75,57 +73,27 @@ public class LoginTest {
             }
 
             String script = """
-                const callback = arguments[arguments.length - 1];
-                try {
-                    const widget = document.querySelector('web-punch-widget');
-                    if (!widget || !widget.shadowRoot) return callback('❌ No widget');
+                const widget = document.querySelector('web-punch-widget');
+                if (!widget || !widget.shadowRoot) return '❌ No widget';
 
-                    const content = widget.shadowRoot.querySelector('web-punch-content');
-                    if (!content || !content.shadowRoot) return callback('❌ No content');
+                const content = widget.shadowRoot.querySelector('web-punch-content');
+                if (!content || !content.shadowRoot) return '❌ No content';
 
-                    const botones = Array.from(content.shadowRoot.querySelectorAll('.btn-entry'));
-                    const botonEntrada = botones.find(b => {
-                        const texto = b.querySelector('.btn-text');
-                        return texto && texto.innerText.trim() === 'Marcar Entrada';
-                    });
+                const botones = Array.from(content.shadowRoot.querySelectorAll('.btn-text'));
+                const nombres = botones.map(b => b.innerText.trim());
 
-                    if (!botonEntrada) {
-                        const visibles = botones.map(b => b.innerText.trim());
-                        return callback('❌ Botón "Marcar Entrada" no encontrado. Botones: [' + visibles.join(', ') + ']');
-                    }
+                const botonEntrada = botones.find(b => b.innerText.trim() === 'Marcar Entrada');
 
+                if (botonEntrada) {
                     botonEntrada.scrollIntoView({behavior: 'smooth', block: 'center'});
-
-                    // Simular secuencia de eventos como humano
-                    ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(type => {
-                        const event = new MouseEvent(type, {
-                            bubbles: true,
-                            cancelable: true,
-                            view: window
-                        });
-                        botonEntrada.dispatchEvent(event);
-                    });
-
-                    // Esperar 2s para validar cambio de estado
-                    setTimeout(() => {
-                        const nuevos = Array.from(content.shadowRoot.querySelectorAll('.btn-entry')).map(b => {
-                            const texto = b.querySelector('.btn-text');
-                            return texto ? texto.innerText.trim() : '';
-                        });
-
-                        if (!nuevos.includes('Marcar Entrada') && nuevos.includes('Marcar Salida')) {
-                            callback('✅ Entrada marcada correctamente (botón cambió a "Marcar Salida")');
-                        } else {
-                            callback('⚠️ Click ejecutado pero no hubo cambio. Botones ahora: [' + nuevos.join(', ') + ']');
-                        }
-                    }, 2000);
-
-                } catch (err) {
-                    callback('❌ Error ejecutando JS: ' + err.message);
+                    setTimeout(() => botonEntrada.click(), 100);
+                    return '✅ Botón "Marcar Entrada" clickeado correctamente.';
+                } else {
+                    return '❌ Botón "Marcar Entrada" no encontrado. 🔍 Botones encontrados: [' + nombres.join(', ') + ']';
                 }
             """;
 
-            Object resultado = js.executeAsyncScript(script);
+            Object resultado = js.executeScript(script);
             System.out.println(resultado);
 
             // 🔔 Notificación por WhatsApp con CallMeBot
@@ -143,7 +111,7 @@ public class LoginTest {
                 e.printStackTrace();
             }
 
-            Thread.sleep(10000);
+            Thread.sleep(15000);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
