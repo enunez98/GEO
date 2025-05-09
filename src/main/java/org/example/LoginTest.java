@@ -28,8 +28,10 @@ public class LoginTest {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=chrome"); // para Actions / Docker
-
+       // options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=new");
+       options.addArguments("--no-sandbox", "--disable-dev-shm-usage");
+       // sin headless para ejecución local visible
+       
         WebDriver driver = new ChromeDriver(options);
 
         try {
@@ -72,36 +74,19 @@ public class LoginTest {
                 return;
             }
 
-            // Paso 1: clic realista en botón "Más"
+            // Paso 1: clic en botón "Más"
             String clickMasScript = """
                 const widget = document.querySelector('web-punch-widget');
                 if (!widget || !widget.shadowRoot) return '❌ No widget';
-
                 const botonMas = widget.shadowRoot.querySelector('.expand-collapse-toggle');
                 if (!botonMas) return '❌ Botón "Más" no encontrado';
-
-                botonMas.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                ['mouseover', 'mouseenter', 'mousemove', 'mousedown', 'mouseup', 'click'].forEach(evt => {
-                    const e = new MouseEvent(evt, { bubbles: true, cancelable: true, view: window });
-                    botonMas.dispatchEvent(e);
-                });
-
-                return '✅ Botón "Más" clickeado con eventos reales';
+                botonMas.click();
+                return '✅ Botón "Más" clickeado';
             """;
             Object resMas = js.executeScript(clickMasScript);
             System.out.println(resMas);
 
-            // Esperar que modal se despliegue
-            Thread.sleep(5000);
-
-            // Salir del iframe
-            driver.switchTo().defaultContent();
-
-            // Ampliar tiempo para script asíncrono
-            driver.manage().timeouts().setScriptTimeout(60, TimeUnit.SECONDS);
-
-            // Paso 2: esperar modal y hacer clic en "Marcar Entrada"
+            // Paso 2: esperar dinámicamente modal y hacer clic en "Marcar Entrada"
             String scriptModal = """
                 const callback = arguments[arguments.length - 1];
                 let intentos = 0;
@@ -172,7 +157,7 @@ public class LoginTest {
                 e.printStackTrace();
             }
 
-            Thread.sleep(8000);
+            Thread.sleep(15000);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
