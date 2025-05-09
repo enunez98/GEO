@@ -84,10 +84,13 @@ public class LoginTest {
             Object resMas = js.executeScript(clickMasScript);
             System.out.println(resMas);
 
-            // Volver al DOM raíz
+            // 🔁 Salir del iframe
             driver.switchTo().defaultContent();
 
-            // Paso 2: esperar y hacer clic en "Marcar Entrada"
+            // ⏱️ Aumentar tiempo para script asíncrono
+            driver.manage().timeouts().setScriptTimeout(60, TimeUnit.SECONDS);
+
+            // Paso 2: esperar modal y hacer clic en "Marcar Entrada"
             String scriptModal = """
                 const callback = arguments[arguments.length - 1];
                 let intentos = 0;
@@ -158,7 +161,7 @@ public class LoginTest {
                 e.printStackTrace();
             }
 
-            Thread.sleep(15000);
+            Thread.sleep(8000);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
