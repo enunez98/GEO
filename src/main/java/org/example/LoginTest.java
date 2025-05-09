@@ -81,30 +81,44 @@ public class LoginTest {
                     const content = widget.shadowRoot.querySelector('web-punch-content');
                     if (!content || !content.shadowRoot) return callback('❌ No content');
 
-                    const botones = Array.from(content.shadowRoot.querySelectorAll('.btn-text'));
-                    const nombresAntes = botones.map(b => b.innerText.trim());
-                    const botonEntrada = botones.find(b => b.innerText.trim() === 'Marcar Entrada');
+                    const botones = Array.from(content.shadowRoot.querySelectorAll('.btn-entry'));
+                    const botonEntrada = botones.find(b => {
+                        const texto = b.querySelector('.btn-text');
+                        return texto && texto.innerText.trim() === 'Marcar Entrada';
+                    });
 
                     if (!botonEntrada) {
-                        return callback('❌ Botón "Marcar Entrada" no encontrado. Botones visibles: [' + nombresAntes.join(', ') + ']');
+                        const visibles = botones.map(b => b.innerText.trim());
+                        return callback('❌ Botón "Marcar Entrada" no encontrado. Botones: [' + visibles.join(', ') + ']');
                     }
 
                     botonEntrada.scrollIntoView({behavior: 'smooth', block: 'center'});
-                    botonEntrada.click();
+                    
+                    // Crear evento real
+                    const clickEvent = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    });
 
-                    // Esperar para validar cambio a "Marcar Salida"
+                    botonEntrada.dispatchEvent(clickEvent);
+
+                    // Verificar cambio después de 2s
                     setTimeout(() => {
-                        const nuevosBotones = Array.from(content.shadowRoot.querySelectorAll('.btn-text'));
-                        const nombresDespues = nuevosBotones.map(b => b.innerText.trim());
-
-                        if (!nombresDespues.includes('Marcar Entrada') && nombresDespues.includes('Marcar Salida')) {
-                            callback('✅ Marcar Entrada exitosa: botón cambió a "Marcar Salida".');
+                        const nuevos = Array.from(content.shadowRoot.querySelectorAll('.btn-entry')).map(b => {
+                            const texto = b.querySelector('.btn-text');
+                            return texto ? texto.innerText.trim() : '';
+                        });
+                        
+                        if (!nuevos.includes('Marcar Entrada') && nuevos.includes('Marcar Salida')) {
+                            callback('✅ Entrada marcada correctamente (botón cambió a "Marcar Salida")');
                         } else {
-                            callback('⚠️ Click ejecutado, pero no se detectó cambio de estado. Botones ahora: [' + nombresDespues.join(', ') + ']');
+                            callback('⚠️ Click ejecutado pero no hubo cambio. Botones ahora: [' + nuevos.join(', ') + ']');
                         }
                     }, 2000);
+
                 } catch (err) {
-                    callback('❌ Error ejecutando script: ' + err.message);
+                    callback('❌ Error ejecutando JS: ' + err.message);
                 }
             """;
 
@@ -126,7 +140,7 @@ public class LoginTest {
                 e.printStackTrace();
             }
 
-            Thread.sleep(15000);
+            Thread.sleep(10000);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
