@@ -34,6 +34,7 @@ public class LoginTest {
         options.addArguments("--no-sandbox", "--disable-dev-shm-usage", "--headless=new");
 
         WebDriver driver = new ChromeDriver(options);
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
 
         try {
             // 1. Iniciar sesión
@@ -41,13 +42,15 @@ public class LoginTest {
             driver.manage().window().maximize();
             driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
 
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-            WebElement usernameField = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[1]/input")));
-            WebElement passwordField = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[2]/input[1]")));
-            WebElement loginButton = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[3]/button")));
+            WebElement usernameField = wait.until(
+                ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[1]/input"))
+            );
+            WebElement passwordField = wait.until(
+                ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[2]/input[1]"))
+            );
+            WebElement loginButton = wait.until(
+                ExpectedConditions.elementToBeClickable(By.xpath("/html/body/div[1]/div/main/section/div/div[2]/div/form/div[3]/button"))
+            );
 
             usernameField.sendKeys(username);
             passwordField.sendKeys(password);
@@ -55,7 +58,7 @@ public class LoginTest {
 
             // Esperar a redirección
             wait.until(ExpectedConditions.urlContains("clients.geovictoria.com"));
-            Thread.sleep(20000); // espera carga completa
+            Thread.sleep(5000); // espera carga inicial
 
             // 2. Buscar iframe con el widget
             JavascriptExecutor js = (JavascriptExecutor) driver;
@@ -78,28 +81,26 @@ public class LoginTest {
                 return;
             }
 
-            // Paso 1: clic en "Más" solo si está colapsado (">")
+            // Paso 1: expandir widget solo si no está abierto
             String clickMasScript = """
+                const detalles = document.querySelector('web-punch-details');
+                if (detalles) {
+                    return 'ℹ️ Ya estaba expandido';
+                }
                 const widget = document.querySelector('web-punch-widget');
                 if (!widget || !widget.shadowRoot) return '❌ No widget';
                 const toggle = widget.shadowRoot.querySelector('.expand-collapse-toggle');
                 if (!toggle) return '❌ Toggle no encontrado';
-                const texto = toggle.textContent.trim();
-                if (texto === '>') {
-                  toggle.click();
-                  return '✅ Widget expandido (" > " → " < ")';
-                } else if (texto === '<') {
-                  return 'ℹ️ Ya estaba expandido ("<")';
-                } else {
-                  return '⚠️ Estado inesperado: ' + texto;
-                }
+                toggle.click();
+                return '✅ Widget expandido';
             """;
             Object resMas = js.executeScript(clickMasScript);
             System.out.println(resMas);
 
-            // Esperar a que aparezca el detalle del widget
-            wait.withTimeout(Duration.ofSeconds(5))
-                .until(d -> js.executeScript("return document.querySelector('web-punch-details') !== null;"));
+            // Esperar a que aparezca <web-punch-details>
+            wait.until(
+                ExpectedConditions.presenceOfElementLocated(By.cssSelector("web-punch-details"))
+            );
 
             // Paso 2: clic en "Marcar Entrada"
             String scriptModal = """
@@ -115,23 +116,21 @@ public class LoginTest {
                         const modal = detalles.shadowRoot.querySelector('web-punch-modal');
                         if (!modal || !modal.shadowRoot) return;
 
-                        const botonEntrada = Array.from(modal.shadowRoot.querySelectorAll('.button-entry')).find(b => {
-                            const texto = b.textContent.trim();
-                            return texto.includes("Marcar Entrada");
-                        });
+                        const botonEntrada = Array.from(
+                            modal.shadowRoot.querySelectorAll('.button-entry')
+                        ).find(b => b.textContent.trim().includes("Marcar Entrada"));
 
                         if (!botonEntrada) {
                             clearInterval(intervalo);
                             return callback('❌ Botón "Marcar Entrada" no encontrado en modal');
                         }
 
-                        ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(evt => {
-                            const e = new MouseEvent(evt, { bubbles: true, cancelable: true, view: window });
-                            botonEntrada.dispatchEvent(e);
-                        });
+                        botonEntrada.click();
 
                         setTimeout(() => {
-                            const botones = Array.from(modal.shadowRoot.querySelectorAll('.button'));
+                            const botones = Array.from(
+                                modal.shadowRoot.querySelectorAll('.button')
+                            );
                             const textos = botones.map(b => b.textContent.trim());
                             if (textos.includes("Marcar Salida") && !textos.includes("Marcar Entrada")) {
                                 callback('✅ Entrada marcada correctamente (cambió a "Marcar Salida")');
@@ -156,7 +155,7 @@ public class LoginTest {
             Object resultado = js.executeAsyncScript(scriptModal);
             System.out.println(resultado);
 
-            // 3. Notificación por WhatsApp
+            // Paso 3: Notificación por WhatsApp
             try {
                 String message = resultado.toString();
                 String encoded = URLEncoder.encode(message, StandardCharsets.UTF_8);
@@ -170,7 +169,7 @@ public class LoginTest {
                 e.printStackTrace();
             }
 
-            Thread.sleep(15000);
+            Thread.sleep(5000);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
